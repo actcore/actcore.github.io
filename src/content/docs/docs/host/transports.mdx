@@ -1,0 +1,78 @@
+---
+title: Transports
+description: One component, four consumption paths — MCP, ACT-HTTP, CLI, and browser.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+A component implements one interface (`act:core/tool-provider`). The host exposes it over a transport of your choice. All transports share the same semantics — tools, arguments, events — and differ only in the wire encoding and discovery mechanism.
+
+## MCP stdio
+
+```bash
+act run <component> --mcp
+```
+
+Speaks JSON-RPC 2.0 over stdin/stdout, backed by the [`rmcp`](https://docs.rs/rmcp) crate. Tool annotations (`std:read-only`, `std:destructive`, etc.) map to MCP `readOnlyHint`, `destructiveHint`, `idempotentHint`.
+
+Use with Claude Desktop, Cursor, Cline, OpenCode, or any MCP client. Example client config:
+
+```json
+{
+  "mcpServers": {
+    "sqlite": {
+      "command": "npx",
+      "args": ["@actcore/act", "run", "ghcr.io/actpkg/sqlite:latest", "--mcp",
+               "--fs-policy", "allowlist", "--fs-allow", "/tmp/db.sqlite"]
+    }
+  }
+}
+```
+
+The MCP adapter is thin: `tools/list` maps to `list-tools`, `tools/call` maps to `call-tool`. See the [MCP spec adapter doc](https://github.com/actcore/act-spec/blob/main/spec/ACT-MCP.md).
+
+## ACT-HTTP
+
+```bash
+act run <component> --http --listen "[::1]:3000"
+```
+
+Exposes the component as a REST-ish server. Endpoints:
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /info` | Component info (name, version, capabilities, tools). No instantiation. |
+| `GET /tools` | `tool-definition` list (full schemas) |
+| `GET /metadata-schema` | JSON Schema of accepted metadata |
+| `POST /tools/<name>` | Invoke a tool. Body: `{"arguments": {...}, "metadata": {...}}`. SSE stream on success. |
+
+Content type negotiation: responses are CBOR by default, JSON with `Accept: application/json`. See [ACT-HTTP](https://github.com/actcore/act-spec/blob/main/spec/ACT-HTTP.md) for the wire spec and [OpenAPI 3.2](https://github.com/actcore/act-spec/blob/main/spec/ACT-HTTP-openapi.yaml) definition.
+
+## CLI direct
+
+```bash
+act call <component> <tool> --args '{"k":"v"}' --metadata '{"std:trace-id":"abc"}'
+```
+
+Instantiates, runs one tool, prints the result, exits. Ideal for scripting and interactive debugging.
+
+## Browser (jco)
+
+Transpile with [`jco`](https://github.com/bytecodealliance/jco):
+
+```bash
+jco transpile component.wasm -o dist/
+```
+
+Produces JS + core-Wasm modules you can `import` in a browser. Same `tool-provider` interface, same arguments — just running entirely client-side. Useful for offline-first apps and component playgrounds.
+
+## Picking a transport
+
+| Use case | Transport |
+|---|---|
+| Agent (Claude Desktop, Cursor, …) | `--mcp` |
+| Backend service, SaaS app | `--http` |
+| Scripts, CI, debugging | `act call` |
+| Playground, offline tools | jco in the browser |
+
+One component, one source of truth, four deployments.

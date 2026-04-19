@@ -1,60 +1,119 @@
 ---
-title: CLI Reference
-description: act-cli command reference.
+title: CLI reference
+description: Complete act and act-build command and flag surface for 0.5.x.
 ---
 
-## act serve
+## `act`
 
-Start an HTTP server for a component.
+```
+act <COMMAND>
 
-```bash
-act serve <component.wasm> [options]
+Commands:
+  run     Load a .wasm component and serve it (HTTP or MCP) or a one-shot CLI call
+  call    Call a tool directly and print the result
+  info    Show component info and optionally list tools
+  skill   Extract embedded Agent Skills from a component
+  pull    Pull a component from a registry
 ```
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--port` | 3000 | HTTP port |
-| `--host` | `[::1]` | Bind address |
+All subcommands that take a component accept three reference forms: a local path, an HTTP(S) URL, or an OCI registry ref (e.g. `ghcr.io/actpkg/sqlite:latest`). Remote components are cached in `~/.cache/act/components/`.
 
-## act mcp
+### Common flags
 
-Start an MCP stdio server.
+| Flag | Description |
+|---|---|
+| `--profile <name>` | Activate a profile from `~/.config/act/config.toml` |
+| `--config <path>` | Use an alternate config file |
+| `--metadata <json>` | Per-call metadata (CLI > profile) |
+| `--metadata-file <path>` | Read metadata from file |
+| `--fs-policy <deny\|allowlist\|open>` | Filesystem policy mode (default: `deny`) |
+| `--fs-allow <glob>` | Add filesystem allow entry (repeatable) |
+| `--fs-deny <glob>` | Add filesystem deny entry |
+| `--http-policy <deny\|allowlist\|open>` | HTTP policy mode (default: `allowlist`) |
+| `--http-allow <spec>` | Add HTTP allow entry (`host=…;scheme=…;methods=…;ports=…`) |
+| `--http-deny <spec>` | Add HTTP deny entry |
 
-```bash
-act mcp <component.wasm>
-```
+See [Policy & sandbox](/docs/host/policy/) for flag semantics.
 
-Reads JSON-RPC from stdin, writes to stdout. Use with Claude Desktop, Cursor, or any MCP client.
-
-## act call
-
-Call a tool directly.
-
-```bash
-act call <component.wasm> <tool-name> [options]
-```
-
-| Option | Description |
-|--------|-------------|
-| `--args <json>` | Tool arguments as JSON |
-| `--metadata <json>` | Metadata key-value pairs as JSON |
+### `act run`
 
 ```bash
-act call my-tools.wasm search --args '{"query": "rust wasm"}'
+act run <component> [--mcp | --http] [--listen <addr>] [policy flags...]
 ```
 
-## act tools
+Host the component over MCP stdio (`--mcp`) or ACT-HTTP (`--http`). `--listen` accepts either a port number (binds `[::1]:<port>`) or a full `addr:port`.
 
-List available tools in a component.
+Default without `--mcp`/`--http`: `--http` on `[::1]:3000`.
+
+### `act call`
 
 ```bash
-act tools <component.wasm>
+act call <component> <tool> [--args <json>] [--metadata <json>] [policy flags...]
 ```
 
-## act info
+One-shot invocation. Writes stdout, exits. For scripts and debugging.
 
-Show component metadata. Reads the `act:component` custom section without instantiating the component.
+### `act info`
 
 ```bash
-act info <component.wasm>
+act info <component> [--tools] [--format text|json]
 ```
+
+Reads the `act:component` custom section (no instantiation). With `--tools`, also instantiates the component and calls `list-tools`.
+
+### `act skill`
+
+```bash
+act skill <component> -o <output-dir>
+```
+
+Extracts the `act:skill` tar into the given directory (creates parent dirs).
+
+### `act pull`
+
+```bash
+act pull <ref> [-o <file>] [-O]
+```
+
+Downloads a component from OCI or HTTP. `-o` writes to an explicit path; `-O` uses the basename of the ref.
+
+## `act-build`
+
+```
+act-build <COMMAND>
+
+Commands:
+  pack      Embed act:component, act:skill, and version/description custom sections
+  validate  Validate a packed component without modifying it
+```
+
+### `act-build pack`
+
+```bash
+act-build pack <component.wasm>
+```
+
+Resolves metadata from (in order): the language manifest, SDK-emitted fields, and an optional `act.toml` sidecar. Writes four custom sections:
+
+- `act:component` — CBOR-encoded metadata
+- `version` — raw version string (used by SBOM tools)
+- `description` — raw description string
+- `act:skill` — tar of `skill/` (if present)
+
+### `act-build validate`
+
+```bash
+act-build validate <component.wasm>
+```
+
+Parses the `act:component` section, verifies capability declarations, and confirms the file is a valid WASM component. Non-zero exit on invalid input.
+
+## Environment
+
+| Variable | Purpose |
+|---|---|
+| `ACT` | Override the `act` binary used by justfiles (default: `npx @actcore/act`) |
+| `ACT_BUILD` | Override the `act-build` binary used by justfiles |
+| `HURL` | Override the `hurl` binary |
+| `OCI_REGISTRY` | Default registry for `just publish` (default: `ghcr.io/actpkg`) |
+| `RUST_LOG` / `ACT_LOG` | Tracing filter. Use `act=info` to filter the host. |

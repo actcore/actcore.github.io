@@ -1,0 +1,60 @@
+---
+title: std:* metadata keys
+description: Canonical registry of well-known metadata keys consumed by the host and transport adapters.
+---
+
+Metadata keys are namespaced strings. Keys starting with `std:` are reserved for the protocol and canonicalized in [ACT-CONSTANTS](https://github.com/actcore/act-spec/blob/main/spec/ACT-CONSTANTS.md). Third-party keys use their own namespace (e.g. `acme:priority`).
+
+## Tool-level (on `tool-definition.metadata`)
+
+| Key | Type | Purpose |
+|---|---|---|
+| `std:read-only` | bool | Tool does not mutate external state. Drives MCP `readOnlyHint`. |
+| `std:idempotent` | bool | Repeated calls with the same args produce the same effect. Drives MCP `idempotentHint`. |
+| `std:destructive` | bool | Tool has irreversible effects. Drives MCP `destructiveHint`. |
+| `std:usage-hints` | list\<string\> | Short agent-facing usage guidance. |
+| `std:anti-usage-hints` | list\<string\> | When **not** to use the tool. |
+| `std:examples` | list\<string\> | Example invocations for agent context. |
+| `std:tags` | list\<string\> | Free-form classifier. |
+| `std:timeout-ms` | u64 | Suggested max duration; host may enforce. |
+
+## Component-level (on `act:component` custom section)
+
+Live under `[std]` in the manifest. See [Manifest reference](/docs/build/manifest/).
+
+| Key | Purpose |
+|---|---|
+| `std.name` | Component name |
+| `std.version` | Semver |
+| `std.description` | One-line description |
+| `std.default-language` | BCP 47 language tag, used when a `localized-string::plain` has no explicit language. |
+| `std.capabilities."wasi:filesystem"` | Filesystem capability declaration (see [Policy & sandbox](/docs/host/policy/)) |
+| `std.capabilities."wasi:http"` | HTTP capability declaration |
+| `std.session-mode` | `explicit \| singleton \| none` — pattern hint for stateful components. |
+| `std.fs.mount-root` | Preferred guest mount point for filesystem-declaring components. |
+
+## Call-level (on `tool-call.metadata`)
+
+Passed per-invocation by the host.
+
+| Key | Purpose |
+|---|---|
+| `std:session-id` | Opaque session token for stateful components. |
+| `std:trace-id` | Distributed trace ID (W3C traceparent). |
+| `std:parent-call-id` | Correlates nested tool calls. |
+| `std:agent-id` | Identity of the calling agent. |
+| `std:conversation-id` | Identity of the calling conversation. |
+
+## Tool-error kinds (on `tool-error.kind`)
+
+| Kind | Meaning |
+|---|---|
+| `std:not-found` | Unknown tool, resource, or endpoint |
+| `std:invalid-args` | Schema violation or invalid input |
+| `std:timeout` | Exceeded `std:timeout-ms` or host timeout |
+| `std:capability-denied` | Host policy rejected an operation |
+| `std:internal` | Unexpected component failure (equivalent to panic) |
+
+---
+
+The full canonical list is maintained in [ACT-CONSTANTS](https://github.com/actcore/act-spec/blob/main/spec/ACT-CONSTANTS.md). New keys land there first; this page is a secondary index.

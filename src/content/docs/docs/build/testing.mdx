@@ -1,0 +1,61 @@
+---
+title: Testing
+description: End-to-end test pattern used by every actpkg component — just + hurl + a live act server.
+---
+
+Every published `actpkg` component tests its tools end-to-end with the same pattern: boot the component under `act run --http`, then exercise every tool with [hurl](https://hurl.dev/). The fixture is a three-line `justfile` recipe; no per-component test harness.
+
+## The recipe
+
+```makefile
+port := `npx get-port-cli`
+addr := "[::1]:" + port
+baseurl := "http://" + addr
+
+test:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    act run {{wasm}} --http --listen "{{addr}}" &
+    trap "kill $!" EXIT
+    npx wait-on -t 180s {{baseurl}}/info
+    npx @orangeopensource/hurl --test --variable "baseurl={{baseurl}}" e2e/*.hurl
+```
+
+Key points:
+
+- `get-port-cli` avoids collisions when CI runs multiple components in parallel.
+- `wait-on` polls `/info` (a no-instantiation endpoint) until the server is ready.
+- `hurl` reads plain-text `.hurl` files — readable both by humans and as assertions.
+
+## A `hurl` test
+
+```hurl
+# e2e/reverse.hurl
+POST {{baseurl}}/tools/reverse
+{"arguments": {"text": "hello"}}
+HTTP 200
+[Asserts]
+jsonpath "$.content[0].data" == "olleh"
+```
+
+The ACT-HTTP wire format is documented in [ACT-HTTP](https://github.com/actcore/act-spec/blob/main/spec/ACT-HTTP.md). For quick tool calls during iteration, `act call` is usually faster:
+
+```bash
+act call <wasm> reverse --args '{"text":"hello"}'
+```
+
+## CI
+
+The Rust and Python templates ship a `.github/workflows/ci.yml` that runs `just build` → `just test` → `just publish` (on `main`). On PRs only build+test run; publish only fires on `main` push.
+
+## Capability flags in tests
+
+If your component declares `wasi:filesystem` or `wasi:http`, the `test` recipe also needs runtime policy flags. SQLite's test recipe, for example:
+
+```makefile
+DB_DIR=$(mktemp -d)
+act run {{wasm}} --http --listen "{{addr}}" \
+  --fs-policy allowlist --fs-allow /dev/urandom --fs-allow "$DB_DIR" &
+```
+
+Ancestor directories on the way to an allowed path are implicitly traversable — you don't need to list each parent explicitly.

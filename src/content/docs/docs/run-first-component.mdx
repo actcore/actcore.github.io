@@ -1,0 +1,63 @@
+---
+title: Run your first component
+description: Pull a published component from an OCI registry and call it as MCP, HTTP, or CLI in three commands.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Every `act` subcommand accepts the same three forms of reference: a local path, an HTTP(S) URL, or an OCI registry ref. We'll use the published SQLite component at `ghcr.io/actpkg/sqlite:latest`.
+
+## Inspect
+
+```bash
+act info ghcr.io/actpkg/sqlite:latest --tools
+```
+
+Prints the component's metadata (`name`, `version`, `description`), its declared capabilities, and every tool it exposes. No instantiation — metadata is read from the `act:component` WASM custom section.
+
+## Call a tool directly
+
+```bash
+act call ghcr.io/actpkg/sqlite:latest query \
+  --args '{"sql": "SELECT sqlite_version()"}' \
+  --fs-policy allowlist --fs-allow /tmp/db.sqlite \
+  --metadata '{"database_path": "/tmp/db.sqlite"}'
+```
+
+`act call` instantiates the component, runs one tool, prints the result, and exits.
+
+## Serve it
+
+<Tabs syncKey="transport">
+<TabItem label="As MCP">
+```bash
+act run ghcr.io/actpkg/sqlite:latest --mcp \
+  --fs-policy allowlist --fs-allow /tmp/db.sqlite
+```
+Exposes the component over MCP stdio. Plug into Claude Desktop, Cursor, or any MCP client.
+</TabItem>
+<TabItem label="As HTTP">
+```bash
+act run ghcr.io/actpkg/sqlite:latest --http --listen "[::1]:3000" \
+  --fs-policy allowlist --fs-allow /tmp/db.sqlite
+curl http://[::1]:3000/info
+curl -X POST http://[::1]:3000/tools/query \
+  -d '{"arguments": {"sql": "SELECT 1"}, "metadata": {"database_path": "/tmp/db.sqlite"}}'
+```
+Exposes [ACT-HTTP](https://github.com/actcore/act-spec/blob/main/spec/ACT-HTTP.md) endpoints with SSE streaming.
+</TabItem>
+</Tabs>
+
+## Where did the `.wasm` go?
+
+`act` cached it to `~/.cache/act/components/`. Subsequent runs skip the network.
+
+## Why did the command need `--fs-policy`?
+
+The SQLite component declares a `wasi:filesystem` capability. At runtime you must grant that capability (otherwise the component can open no files at all). The declaration is a **ceiling** — you can't grant more than the component asked for. See [Policy & sandbox](/docs/host/policy/).
+
+## Next
+
+- [Build a component](/docs/build/rust/) in Rust
+- [Configure host policy](/docs/host/policy/) — filesystem & network allow/deny
+- [Profiles](/docs/host/config/) — save the `--fs-allow` arguments for this SQLite component in `~/.config/act/config.toml`

@@ -1,82 +1,52 @@
 ---
-title: Introduction
-description: ACT (Agent Component Tools) — universal tool components built on WebAssembly Component Model.
+title: What is ACT
+description: A single WebAssembly component that serves AI agents, apps, CLI, and browsers through one self-documenting protocol.
 ---
 
-**ACT** (Agent Component Tools) is a self-documenting RPC protocol built on the [WebAssembly Component Model](https://component-model.bytecodealliance.org/).
+ACT — *Agent Component Tools* — is a protocol for packaging tools as WebAssembly components. One `.wasm` file works from any host: agents via MCP, applications via HTTP, developers via CLI, browsers via jco.
 
-A single `.wasm` component serves all consumers:
-- **AI agents** — via MCP adapter
-- **Applications** — via HTTP + JSON/CBOR
-- **CLI users** — via `act call`
-- **Browsers** — via jco transpilation
+## Why another protocol
 
-## Why ACT?
+Tools today are scattered across MCP servers, OpenAPI backends, ad-hoc REST APIs, and language-specific SDKs. Each target needs its own adapter, its own auth story, its own sandbox. ACT collapses the pipeline:
 
-| Problem | ACT Solution |
-|---------|-------------|
-| npm/pip install + native deps | Single `.wasm` file, zero dependencies |
-| Works on my machine | Deterministic binary, same SHA256 everywhere |
-| Full OS access by default | WASM sandbox with explicit capability grants |
-| Only serves MCP agents | One component serves agents, apps, CLI, browsers |
+| Problem | ACT |
+|---|---|
+| One codebase per transport (MCP server, REST backend, CLI) | One `.wasm`, four transports (MCP, HTTP, CLI, browser) |
+| Tools run with full OS access | Deny-by-default filesystem + network sandbox; capabilities are declared in the component and intersected with host policy |
+| Metadata drift across `Cargo.toml` / `pyproject.toml` / `package.json` | Merged at build time into a signed `act:component` custom section |
+| "Works on my machine" | Deterministic `.wasm` binary — same SHA256 on any CPU, any host, any transport |
 
-## Core Concepts
+## Architecture in one picture
 
-- **Component** — a `.wasm` file exporting the `act-world` world
-- **Tool** — a named callable function exposed via the `tool-provider` interface
-- **Transport Adapter** — translates MCP, HTTP, or other protocols to ACT host calls
-- **Metadata** — per-call context passed through the host (auth, tracing, config)
+```mermaid
+graph TD
+    Component["component.wasm<br/>(tool-provider + act:component)"]
+    Host["act host<br/>(wasmtime, capability-gated)"]
+    MCP["MCP stdio"]
+    HTTP["ACT-HTTP"]
+    CLI["act call"]
+    Browser["Browser<br/>(jco)"]
 
-## Quick Example
-
-```rust
-use act_sdk::prelude::*;
-
-#[act_component]
-struct MyTools;
-
-#[act_tool(description = "Encode text as base64")]
-fn base64_encode(input: String) -> String {
-    use base64::Engine;
-    base64::engine::general_purpose::STANDARD.encode(input)
-}
+    Component --> Host
+    Host --> MCP
+    Host --> HTTP
+    Host --> CLI
+    Component -.-> Browser
 ```
 
-```bash
-# Build
-cargo build --target wasm32-wasip2 --release
+A component exports the `tool-provider` interface from [`act:core@0.3.0`](https://github.com/actcore/act-spec/blob/main/wit/act-core.wit). The host reads the component's metadata from a WASM custom section (`act:component`, CBOR) without instantiating it, then exposes the tools over any of four transports.
 
-# Serve over MCP (for AI agents)
-act mcp my-tools.wasm
+## What's in the box
 
-# Serve over HTTP (for apps)
-act serve my-tools.wasm
+- **`act`** — host CLI. Pulls components from OCI registries, HTTP URLs, or local paths; runs them as MCP server, HTTP server, or direct-call.
+- **`act-build`** — component post-processor. Merges metadata from `Cargo.toml` / `pyproject.toml` / `package.json` / `act.toml` into the `.wasm`.
+- **`act-sdk` (Rust)** — `#[act_component]` / `#[act_tool]` macros.
+- **`act-sdk` (Python)** — `@component` / `@tool` decorators via `componentize-py`.
+- **Spec** — [`actcore/act-spec`](https://github.com/actcore/act-spec). WIT is normative; JSON Schema is derived.
+- **Components** — a growing set under [`ghcr.io/actpkg`](https://github.com/orgs/actpkg/packages): `sqlite`, `http-client`, `crypto`, `encoding`, `filesystem`, `openwallet`, `python-eval`, `mcp-bridge`, `openapi-bridge`, `random`, `time`.
 
-# Call directly
-act call my-tools.wasm base64_encode --args '{"input": "hello"}'
-```
+## Next
 
-## WIT Interface
-
-ACT components implement `act:core@0.2.0`:
-
-```wit
-interface tool-provider {
-    get-metadata-schema: async func(metadata: metadata)
-        -> option<string>;
-
-    list-tools: async func(metadata: metadata)
-        -> result<list-tools-response, tool-error>;
-
-    call-tool: async func(call: tool-call)
-        -> stream<stream-event>;
-}
-```
-
-Component info is stored in a WASM custom section (`act:component`, CBOR-encoded), not an exported function.
-
-## Next Steps
-
-- [Install act-cli](/docs/getting-started/installation/) to start building
-- [Create your first component](/docs/getting-started/first-component/)
-- [Learn the architecture](/docs/concepts/overview/)
+- [Install](/docs/install/)
+- [Run your first component](/docs/run-first-component/) (pull + serve + call in under a minute)
+- [Build your own](/docs/build/rust/) — Rust or Python

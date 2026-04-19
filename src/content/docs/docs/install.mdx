@@ -1,0 +1,72 @@
+---
+title: Install
+description: Install the act CLI and verify the build.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Install the CLI
+
+The `act` host CLI ships on npm, crates.io, and PyPI (via `act-mcpb`).
+
+<Tabs syncKey="installer">
+<TabItem label="npx (no install)">
+```bash
+npx @actcore/act --help
+```
+Good for a one-off run. Caches to `~/.npm/_npx/`.
+</TabItem>
+<TabItem label="npm global">
+```bash
+npm install -g @actcore/act @actcore/act-build
+```
+Installs `act` and `act-build` binaries on `$PATH`.
+</TabItem>
+<TabItem label="cargo">
+```bash
+cargo install act-cli act-build
+```
+Compiles from source. Requires a recent stable Rust.
+</TabItem>
+<TabItem label="Docker">
+```bash
+docker pull ghcr.io/actcore/act:latest
+docker run --rm ghcr.io/actcore/act --help
+```
+</TabItem>
+</Tabs>
+
+## Verify
+
+```bash
+act --version
+# act 0.5.2
+act --help
+```
+
+You should see subcommands `run`, `call`, `info`, `skill`, `pull`.
+
+## To build components
+
+You need a Rust or Python toolchain depending on which SDK you use.
+
+<Tabs syncKey="lang">
+<TabItem label="Rust">
+```bash
+rustup toolchain install nightly
+rustup target add wasm32-wasip2 --toolchain nightly
+```
+Components pin the toolchain with `rust-toolchain.toml`; you don't need `+nightly` flags day-to-day.
+</TabItem>
+<TabItem label="Python">
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+The `act-sdk` Python package runs inside `componentize-py` at build time; `uv` manages the dev environment.
+</TabItem>
+</Tabs>
+
+## Next
+
+- [Run your first component](/docs/run-first-component/) — pull a published component and call it in three commands.
+- [Build your own](/docs/build/rust/) — Rust or Python scaffold.

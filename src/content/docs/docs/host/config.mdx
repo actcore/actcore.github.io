@@ -1,0 +1,85 @@
+---
+title: Profiles & config
+description: Save host settings, policy, and per-component metadata in ~/.config/act/config.toml.
+---
+
+The CLI reads `~/.config/act/config.toml` at startup. It holds host defaults and named **profiles** — per-component bundles of metadata + policy you can activate with `--profile <name>`.
+
+## Priority
+
+Later wins:
+
+```
+  CLI flags  >  --profile  >  global [policy] / [host]  >  CLI defaults
+```
+
+## Layout
+
+```toml
+# ~/.config/act/config.toml
+
+listen = "[::1]:3000"
+log-level = "info"
+
+[policy]
+fs   = "deny"
+http = "allowlist"
+
+[policy.http.allow]
+# runtime-wide baseline: let any component reach the public API
+"api.example.com" = { scheme = "https", methods = ["GET", "POST"] }
+
+# -- per-component profile ------------------------------------
+[profile.sqlite-dev]
+# metadata passed to list-tools / call-tool
+metadata = { database_path = "/Users/me/dev.sqlite" }
+
+[profile.sqlite-dev.policy]
+fs = { mode = "allowlist", allow = [
+  { path = "/Users/me/dev.sqlite", mode = "rw" },
+]}
+
+[profile.sqlite-prod]
+metadata = { database_path = "/var/lib/acme/prod.sqlite" }
+[profile.sqlite-prod.policy]
+fs = { mode = "allowlist", allow = [
+  { path = "/var/lib/acme/prod.sqlite", mode = "rw" },
+]}
+```
+
+## Using a profile
+
+```bash
+act run ghcr.io/actpkg/sqlite:latest --mcp --profile sqlite-dev
+```
+
+The host merges the profile's `metadata` with any `--metadata` on the CLI (CLI wins per-key), and intersects the profile's policy with the component's declared capabilities.
+
+## Overriding the config path
+
+```bash
+act run <wasm> --config ./my-config.toml
+```
+
+Useful in CI or per-project setups.
+
+## What lives here
+
+Good fits: credentials, long allow-lists, hostnames, database paths, per-team network policy baselines.
+
+Don't-put-here: secrets that rotate (use `--metadata-file` with a symlink that changes), component versions (pin the OCI tag instead).
+
+## Example: MCP client setup
+
+```json
+{
+  "mcpServers": {
+    "sqlite-dev": {
+      "command": "act",
+      "args": ["run", "ghcr.io/actpkg/sqlite:latest", "--mcp", "--profile", "sqlite-dev"]
+    }
+  }
+}
+```
+
+Your MCP client never needs to know about paths or policy flags — they live in the profile.

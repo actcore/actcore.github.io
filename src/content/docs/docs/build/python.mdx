@@ -1,0 +1,90 @@
+---
+title: Python quick start
+description: Build an ACT component in Python with componentize-py and the act-sdk decorators.
+---
+
+## Scaffold
+
+```bash
+copier copy gh:actcore/act-template-python my-component
+cd my-component
+just init
+```
+
+The template sets up `pyproject.toml` with `act-sdk>=0.1.1`, a `wit/` directory tracking [`act:core@0.3.0`](https://github.com/actcore/act-spec/blob/main/wit/act-core.wit), `componentize-py` as a dev dependency, and a `justfile` with `build` / `test` / `publish`.
+
+## Write a tool
+
+`app.py`:
+
+```python
+from act_sdk import component, tool, ActError
+
+
+@component
+class MyComponent:
+    @tool(description="Reverse a string", read_only=True)
+    async def reverse(self, text: str) -> str:
+        return text[::-1]
+
+    @tool(description="Divide two numbers")
+    async def divide(self, a: float, b: float) -> float:
+        if b == 0:
+            raise ActError("std:invalid-args", "Cannot divide by zero")
+        return a / b
+```
+
+Type hints and the method signature become the tool's JSON Schema automatically. The `@component` decorator emits the WIT `tool-provider` export binding expected by `componentize-py`.
+
+## Build
+
+```bash
+just build
+```
+
+This runs:
+1. `uv run componentize-py -d wit -w component-world componentize app -o <name>.wasm`
+2. `act-build pack <name>.wasm`
+
+Python code is baked into a SpiderMonkey-free Python runtime via [`componentize-py`](https://github.com/bytecodealliance/componentize-py).
+
+## Verify
+
+```bash
+act info <name>.wasm --tools
+```
+
+## Run
+
+```bash
+just test
+act call <name>.wasm reverse --args '{"text":"hello"}'
+```
+
+## What `act_sdk` gives you
+
+| Decorator / type | Purpose |
+|---|---|
+| `@component` | Marks a class as the ACT component, generates the WIT bridge |
+| `@tool(description=..., read_only=..., idempotent=..., destructive=..., timeout_ms=...)` | Marks a method as a tool; JSON Schema derived from type hints |
+| `ActError("std:kind", "msg")` | Raise for structured tool errors |
+| `Json[T]` / `Content` | Opt into JSON or explicit MIME type (default is CBOR) |
+
+Return types:
+
+- `str` → text/plain
+- `bytes` → application/octet-stream
+- `Json(x)` → application/json
+- `Content(mime, data)` → whatever you say
+- anything else → CBOR
+
+## Known limitations
+
+- `componentize-py` currently requires Python 3.14 runtime to build.
+- Cold-start is slower than Rust components (Python interpreter bundled).
+
+## Next
+
+- [Declare capabilities](/docs/build/manifest/)
+- [Agent Skills](/docs/build/skills/)
+- [Testing](/docs/build/testing/)

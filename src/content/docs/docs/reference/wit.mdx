@@ -1,0 +1,108 @@
+---
+title: WIT (act:core@0.3.0)
+description: Normative WIT definition of the ACT protocol. Canonical source in actcore/act-spec.
+---
+
+The WIT is the source of truth for the protocol. JSON Schema, OpenAPI, and MCP shapes are derived from it. The normative file lives at [`actcore/act-spec/wit/act-core.wit`](https://github.com/actcore/act-spec/blob/main/wit/act-core.wit).
+
+## The `tool-provider` interface
+
+```wit
+package act:core@0.3.0;
+
+interface tool-provider {
+  use types.{tool-definition, tool-call, tool-result,
+             list-tools-response, tool-error, metadata};
+
+  /// JSON Schema describing metadata keys this component accepts.
+  /// Called with empty metadata MUST not do network I/O.
+  get-metadata-schema: async func(metadata: metadata) -> option<string>;
+
+  /// List tools available for the given metadata.
+  list-tools: async func(metadata: metadata)
+      -> result<list-tools-response, tool-error>;
+
+  /// Invoke a tool. Returns immediate or streaming events.
+  call-tool: async func(call: tool-call) -> tool-result;
+}
+```
+
+Every ACT component exports this interface. Components export no other functions — component-level metadata (name, version, description, capabilities) lives in the `act:component` WASM custom section, not as an export.
+
+## Core types
+
+```wit
+type metadata = list<tuple<string, list<u8>>>;
+
+variant localized-string {
+  plain(string),
+  localized(list<tuple<string, string>>),
+}
+
+record tool-definition {
+  name: string,
+  description: localized-string,
+  parameters-schema: string,   // JSON Schema as a string
+  metadata: metadata,
+}
+
+record tool-call {
+  name: string,
+  arguments: list<u8>,         // dCBOR (RFC 8949 §4.2)
+  metadata: metadata,
+}
+
+record content-part {
+  data: list<u8>,
+  mime-type: option<string>,
+  metadata: metadata,
+}
+
+record tool-error {
+  kind: string,                // std:not-found, std:invalid-args, …
+  message: localized-string,
+  metadata: metadata,
+}
+
+variant tool-event {
+  content(content-part),
+  error(tool-error),           // terminal
+}
+
+variant tool-result {
+  immediate(list<tool-event>),
+  streaming(stream<tool-event>),
+}
+
+record list-tools-response {
+  metadata: metadata,
+  tools: list<tool-definition>,
+}
+```
+
+## Encoding
+
+- Arguments and content bytes are **CBOR** by default — deterministic per RFC 8949 §4.2.
+- MIME-typed content parts may carry JSON, text, images, or opaque bytes — the host routes based on `mime-type`.
+- Metadata keys are namespaced strings. Values are CBOR-encoded.
+
+## `tool-result` variants
+
+Both variants have identical observable semantics — an ordered sequence of `tool-event`s, with `tool-event::error` terminal. Intermediaries (bridges, adapters) MAY freely convert between them.
+
+- **`immediate(list<tool-event>)`** — natural for sync guest bodies and languages without an async runtime; the whole event list is materialized on return.
+- **`streaming(stream<tool-event>)`** — natural for long-running or I/O-bound tools; events flow as they're produced.
+
+## Component metadata (CBOR custom section)
+
+Not part of the WIT — defined in the [ACT specification](https://github.com/actcore/act-spec/blob/main/spec/ACT-SPEC.md). The host reads it without instantiating the component. See [Manifest reference](/docs/build/manifest/) for the authoring side.
+
+## Related WIT files
+
+| File | Status |
+|---|---|
+| [`act-core.wit`](https://github.com/actcore/act-spec/blob/main/wit/act-core.wit) | **Normative** — the contract above |
+| [`act-events.wit`](https://github.com/actcore/act-spec/blob/main/wit/act-events.wit) | Informative / RFC — `event-provider` (pub/sub) |
+| [`act-resources.wit`](https://github.com/actcore/act-spec/blob/main/wit/act-resources.wit) | Informative / RFC — `resource-provider` |
+
+The informative WITs are under active design; they'll graduate to normative after production validation in published components.

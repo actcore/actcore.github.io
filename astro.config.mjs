@@ -19,26 +19,37 @@ export default defineConfig({
 			],
 			sidebar: [
 				{
-					label: 'Getting Started',
+					label: 'Start here',
 					items: [
-						{ slug: 'docs' },
-						{ slug: 'docs/getting-started/installation' },
-						{ slug: 'docs/getting-started/first-component' },
+						{ slug: 'docs', label: 'What is ACT' },
+						{ slug: 'docs/install' },
+						{ slug: 'docs/run-first-component' },
 					],
 				},
 				{
-					label: 'Concepts',
+					label: 'Build a component',
 					items: [
-						{ slug: 'docs/concepts/overview' },
-						{ slug: 'docs/concepts/components' },
-						{ slug: 'docs/concepts/transports' },
+						{ slug: 'docs/build/rust' },
+						{ slug: 'docs/build/python' },
+						{ slug: 'docs/build/manifest' },
+						{ slug: 'docs/build/skills' },
+						{ slug: 'docs/build/testing' },
+					],
+				},
+				{
+					label: 'Host / run',
+					items: [
+						{ slug: 'docs/host/transports' },
+						{ slug: 'docs/host/policy' },
+						{ slug: 'docs/host/config' },
 					],
 				},
 				{
 					label: 'Reference',
 					items: [
-						{ slug: 'docs/reference/wit-api' },
 						{ slug: 'docs/reference/cli' },
+						{ slug: 'docs/reference/wit' },
+						{ slug: 'docs/reference/std-keys' },
 					],
 				},
 			],

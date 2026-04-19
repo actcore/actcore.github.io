@@ -1,0 +1,69 @@
+---
+title: Agent Skills
+description: Ship agent-facing documentation alongside the component. Extracted with act skill.
+---
+
+A component can embed an [Agent Skill](https://github.com/actcore/act-spec/blob/main/spec/ACT-AGENTSKILLS.md) — markdown documentation aimed at an LLM agent that's about to call the component's tools. The skill is a `SKILL.md` file (with YAML frontmatter) plus optional supporting files, tar-packed into the `act:skill` WASM custom section.
+
+## Layout
+
+```
+skill/
+├── SKILL.md         # required, with frontmatter
+├── EXAMPLES.md      # optional
+└── references/…     # optional supporting files
+```
+
+## `SKILL.md`
+
+```markdown
+---
+name: sqlite
+description: Query a SQLite database. Useful for structured tabular data.
+metadata:
+  act: {}
+---
+
+# SQLite Component
+
+Run SQL queries against a database file.
+
+## Tools
+
+### query
+Execute a SQL statement. Returns JSON rows.
+
+```
+query(sql: "SELECT * FROM users LIMIT 10")
+```
+```
+
+Frontmatter fields:
+
+| Field | Required | Purpose |
+|---|---|---|
+| `name` | ✓ | Slug, matches the component name |
+| `description` | ✓ | One-line summary for the agent |
+| `metadata.act` | ✓ | Must be `{}` — signals to skill consumers that this is an ACT skill |
+
+## Build-time embedding
+
+### Rust
+
+```rust
+act_sdk::embed_skill!("skill/");
+```
+
+Compile-time macro. Reads `skill/` at `build.rs` time, tars it, and emits the `act:skill` custom section via `#[link_section]`.
+
+### Python
+
+`act-build pack` picks up `skill/` automatically — no code change needed.
+
+## Extract
+
+```bash
+act skill ghcr.io/actpkg/sqlite:latest -o .agents/skills/sqlite/
+```
+
+Writes the tar contents to the given directory. Agents can then use a skill-add workflow to pick up the documentation without ever running the component.

@@ -1,0 +1,112 @@
+---
+title: Policy & sandbox
+description: Deny-by-default filesystem and outbound HTTP. Runtime policy is intersected with the component's declared capabilities.
+---
+
+The host gates every `wasi:filesystem` and `wasi:http` operation through a policy engine. Two things shape an effective policy:
+
+1. **User policy** — what the operator grants at run time (`--fs-allow`, CLI flags, profiles, config file).
+2. **Component ceiling** — what the component declared in its `[std.capabilities.*]` manifest. Undeclared or empty-allow capabilities are hard-denied regardless of user grants.
+
+The effective policy is `user ∩ declaration`. A permissive operator can't escalate past a component's stated intent, and a lazy component can't silently exceed the operator's grants.
+
+## Filesystem
+
+### Modes
+
+| Mode | Behaviour |
+|---|---|
+| `deny` (default) | No filesystem access |
+| `allowlist` | Only paths matching `--fs-allow` glob(s), subject to the component's declared ceiling |
+| `open` | Full host filesystem (subject to ceiling); use for development only |
+
+### Flags
+
+```bash
+act run <wasm> \
+  --fs-policy allowlist \
+  --fs-allow "/data/**" \
+  --fs-allow "/tmp/work/db.sqlite" \
+  --fs-deny "/data/secrets/**"
+```
+
+`--fs-allow` takes globs. On Unix the filesystem root is `/`; on Windows one preopen is created per accessible drive (`/c`, `/d`, …).
+
+### Ancestor traversal
+
+WASI stats every intermediate directory when opening a nested file. An `--fs-allow /tmp/work/db.sqlite` entry implicitly grants traversal of `/tmp/work` and `/tmp` — sibling files remain denied. You don't need to list each parent.
+
+## Network
+
+### Modes
+
+| Mode | Behaviour |
+|---|---|
+| `deny` | No outbound HTTP |
+| `allowlist` (default) | Only hosts / methods / ports matching `--http-allow` |
+| `open` | Any outbound request (subject to ceiling) |
+
+### Flags
+
+```bash
+act run <wasm> \
+  --http-policy allowlist \
+  --http-allow "api.example.com" \
+  --http-allow "scheme=https;host=*.internal;methods=GET,HEAD;ports=443" \
+  --http-deny  "cidr=10.0.0.0/8" \
+  --http-deny  "cidr=169.254.169.254/32"
+```
+
+Every request is gated by host, scheme, method, port, and DNS-resolved IP (against both deny- and allow-CIDR rules). Deny-CIDR hits surface to the component as a `DnsError`, not a refused connection — policy-denied requests are attributable to DNS resolution.
+
+### Redirects
+
+Each hop of a redirect chain is re-checked against the same policy. A 302 to a denied host fails mid-chain instead of quietly succeeding.
+
+### Keep-alive, HTTP/2, HTTP/3
+
+The host uses a [`reqwest`](https://docs.rs/reqwest)-backed client with:
+
+- HTTP/2 negotiated via ALPN; HTTP/3 compiled in (dormant pending alt-svc)
+- HTTP/2 PING every 30s + TCP keep-alive (SSE-friendly)
+- 10-minute idle pool timeout
+
+## Declarations vs runtime policy
+
+A component must declare every capability it intends to use. The declaration is positive-only (no `deny`), and every entry has required fields:
+
+```toml
+# Filesystem
+[[std.capabilities."wasi:filesystem".allow]]
+path = "**"         # required
+mode = "rw"         # required: "ro" or "rw"
+
+# HTTP
+[[std.capabilities."wasi:http".allow]]
+host = "*"          # required: "*", "*.suffix", or exact
+# scheme, methods, ports optional
+```
+
+`act-build pack` validates these declarations at build time; the host re-validates at load and rejects a component that's missing a required field or declaring an empty `allow` where one is needed.
+
+## Quick recipes
+
+### Deny everything (hardening)
+```bash
+act run <wasm> --fs-policy deny --http-policy deny
+```
+
+### Allow a single SQLite file
+```bash
+act run ghcr.io/actpkg/sqlite:latest --mcp \
+  --fs-policy allowlist --fs-allow /data/app.sqlite
+```
+
+### Allow one external API, block everything else
+```bash
+act run <wasm> --http-policy allowlist \
+  --http-allow "host=api.openai.com;scheme=https;methods=POST"
+```
+
+### Save this as a profile
+See [Profiles & config](/docs/host/config/).

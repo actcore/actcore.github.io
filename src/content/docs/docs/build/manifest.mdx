@@ -1,0 +1,113 @@
+---
+title: Manifest reference
+description: Component metadata lives in the act:component custom section, merged at build time from language manifests and an optional act.toml patch.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+`act-build pack` writes the `act:component` WASM custom section (CBOR-encoded). Its contents are **merged** from several sources:
+
+1. Language manifest — `Cargo.toml` / `pyproject.toml` / `package.json`
+2. SDK-emitted fields — produced by `#[act_component]` / `@component` at build time
+3. `act.toml` — sidecar patch, applied last
+
+Later sources override earlier ones (RFC 7396 merge-patch).
+
+## Basic fields
+
+Keys live under `[std]`. Name, version, and description come from the language manifest by default.
+
+<Tabs syncKey="lang">
+<TabItem label="Rust">
+```toml
+# Cargo.toml
+[package]
+name = "component-sqlite"
+version = "0.2.3"
+description = "SQLite database"
+
+[package.metadata.act]
+# optional overrides/additions
+```
+</TabItem>
+<TabItem label="Python">
+```toml
+# pyproject.toml
+[project]
+name = "python-eval"
+version = "0.1.1"
+description = "Python interpreter"
+
+[tool.act.std]
+# optional overrides/additions
+```
+</TabItem>
+<TabItem label="act.toml">
+```toml
+[std]
+name = "sqlite"               # last-wins override of the Cargo / pyproject name
+version = "0.2.3"
+description = "SQLite database"
+```
+</TabItem>
+</Tabs>
+
+## Capability declarations
+
+A component declares the WASI capabilities it needs. The host uses this as a **ceiling** on what the user's policy can grant: an undeclared capability, or a declaration with an empty `allow` list, is a hard deny regardless of `--fs-allow` or `--http-allow`.
+
+### Filesystem
+
+```toml
+[std.capabilities."wasi:filesystem"]
+description = "Stores the database file."
+
+[[std.capabilities."wasi:filesystem".allow]]
+path = "**"        # glob; "**" means any path
+mode = "rw"        # "ro" or "rw"
+```
+
+Multiple `[[...allow]]` entries are OR'd. The user's runtime policy is intersected with this ceiling.
+
+### HTTP
+
+```toml
+[std.capabilities."wasi:http"]
+description = "Fetches OpenAPI specs from public catalogs."
+
+[[std.capabilities."wasi:http".allow]]
+host = "petstore3.swagger.io"   # "*" = any host; "*.example.com" = suffix
+scheme = "https"                # optional — any scheme if absent
+methods = ["GET"]               # optional — any method if absent
+ports = [443]                   # optional — standard port for the scheme
+```
+
+## Agent skill embedding
+
+If a `skill/` directory exists at the package root, `act-build pack` tars it and embeds it as the `act:skill` custom section. Extract with `act skill <component.wasm> -o out/`. See [Agent Skills](/docs/build/skills/).
+
+## Validation
+
+```bash
+act-build validate path/to/component.wasm
+```
+
+Checks that declared capabilities parse, that the CBOR section is readable, and that the file is a valid component.
+
+## Merge order cheatsheet
+
+```
+┌─────────────────────────┐
+│  Cargo / pyproject / package  │   defaults from the language manifest
+└─────────────────────────┘
+           ▼
+┌─────────────────────────┐
+│  SDK-emitted fields     │   macros / decorators contribute at compile time
+└─────────────────────────┘
+           ▼
+┌─────────────────────────┐
+│  act.toml (sidecar)     │   last wins — use this for per-deploy overrides
+└─────────────────────────┘
+           ▼
+     act:component (CBOR)
+```

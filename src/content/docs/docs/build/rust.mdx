@@ -1,0 +1,81 @@
+---
+title: Rust quick start
+description: Build an ACT component in Rust with the act-sdk macros.
+---
+
+## Scaffold
+
+```bash
+copier copy gh:actcore/act-template-rust my-component
+cd my-component
+just init
+```
+
+The template sets up `Cargo.toml` with `act-sdk = "0.5"`, a `wit/` directory tracking [`act:core@0.3.0`](https://github.com/actcore/act-spec/blob/main/wit/act-core.wit), a `rust-toolchain.toml` pinning nightly + `wasm32-wasip2`, and a `justfile` with `build` / `test` / `publish` recipes.
+
+## Write a tool
+
+`src/lib.rs`:
+
+```rust
+use act_sdk::prelude::*;
+
+act_sdk::embed_skill!("skill/");
+
+#[act_component]
+mod component {
+    use super::*;
+
+    /// Reverse a string.
+    #[act_tool(description = "Reverse a string", read_only)]
+    fn reverse(
+        #[doc = "Text to reverse"] text: String,
+    ) -> ActResult<String> {
+        Ok(text.chars().rev().collect())
+    }
+}
+```
+
+The `#[act_component]` macro generates the WIT `tool-provider` export. The `#[act_tool]` macro derives the JSON Schema from the function signature, collects `std:*` metadata (`read_only`, `idempotent`, `destructive`, `timeout_ms`), and registers the function with the component's dispatcher.
+
+## Build
+
+```bash
+just build
+```
+
+This runs:
+1. `cargo build --release` → `target/wasm32-wasip2/release/<name>.wasm`
+2. `act-build pack <name>.wasm` → embeds the `act:component` custom section (CBOR-encoded metadata) and the contents of `skill/` as an Agent Skill tar.
+
+## Verify
+
+```bash
+act info target/wasm32-wasip2/release/component_my_component.wasm --tools
+```
+
+Should print your component name, version, and the `reverse` tool with its auto-derived schema.
+
+## Run
+
+```bash
+just test                    # e2e hurl tests against the built component
+act call <wasm> reverse --args '{"text":"hello"}'
+```
+
+## What `act-sdk` gives you
+
+| Macro / type | Purpose |
+|---|---|
+| `#[act_component]` | Wraps a module as the `act:core/tool-provider` export |
+| `#[act_tool(…)]` | Registers a fn as a tool, emits JSON Schema from the signature + doc comments |
+| `ActError` / `ActResult` | Return errors with a `std:*` kind and localized message |
+| `Json<T>` | Opt into JSON encoding (default is CBOR, per [ACT-SPEC](https://github.com/actcore/act-spec/blob/main/spec/ACT-SPEC.md)) |
+| `Content { mime, data }` | Return raw bytes with an explicit MIME type |
+| `embed_skill!("skill/")` | Compile-time embed of `skill/SKILL.md` + friends |
+
+## Next
+
+- [Declare capabilities](/docs/build/manifest/) — `wasi:filesystem`, `wasi:http`
+- [Agent Skills](/docs/build/skills/) — `SKILL.md` embedded in the component
+- [Testing](/docs/build/testing/) — `just test` pattern with `hurl`
