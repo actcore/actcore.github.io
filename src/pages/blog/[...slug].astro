@@ -1,0 +1,38 @@
+---
+import { getCollection, render } from 'astro:content';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+
+export async function getStaticPaths() {
+	const posts = await getCollection('blog', ({ data }) => !data.draft);
+	return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+const dateStr = post.data.pubDate.toLocaleDateString('en-US', {
+	year: 'numeric',
+	month: 'long',
+	day: 'numeric',
+});
+---
+
+<StarlightPage
+	frontmatter={{
+		title: post.data.title,
+		description: post.data.description,
+		pagefind: true,
+	}}
+>
+	<p class="meta">{dateStr} · {post.data.author}</p>
+	<Content />
+	<hr />
+	<p><a href="/blog/">← all posts</a></p>
+</StarlightPage>
+
+<style>
+	.meta {
+		color: var(--sl-color-gray-3);
+		font-size: 0.9rem;
+		margin: 0 0 2rem;
+	}
+</style>
