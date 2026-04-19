@@ -20,16 +20,31 @@ const dateStr = post.data.pubDate.toLocaleDateString('en-US', {
 	frontmatter={{
 		title: post.data.title,
 		description: post.data.description,
+		template: 'splash',
 		pagefind: true,
+		tableOfContents: false,
 	}}
 >
-	<p class="meta">{dateStr} · {post.data.author}</p>
-	<Content />
-	<hr />
-	<p><a href="/blog/">← all posts</a></p>
+	<div class="blog-post">
+		<p class="meta">{dateStr} · {post.data.author}</p>
+		<Content />
+		<hr />
+		<p><a href="/blog/">← all posts</a></p>
+	</div>
 </StarlightPage>
 
+<style is:global>
+	:root {
+		--blog-content-width: 48rem;
+	}
+	body:has(.blog-post) {
+		--sl-content-width: var(--blog-content-width);
+	}
+</style>
 <style>
+	.blog-post {
+		display: contents;
+	}
 	.meta {
 		color: var(--sl-color-gray-3);
 		font-size: 0.9rem;
