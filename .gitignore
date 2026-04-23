@@ -2,6 +2,8 @@
 dist/
 # generated types
 .astro/
+# build-time caches (asciinema oEmbed, etc.)
+.cache/
 
 # dependencies
 node_modules/

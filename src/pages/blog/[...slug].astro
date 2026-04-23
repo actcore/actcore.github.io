@@ -51,42 +51,21 @@ if (coverAbsolute) {
 	</div>
 </StarlightPage>
 
-<script>
-	// Upgrade standalone asciinema.org links (a single <a> in its
-	// own <p>) into an inline asciinema.org script embed. Matches
-	// the oEmbed convention: the URL is the source of truth, the
-	// consumer decides how to render. dev.to does the same
-	// server-side via its registered asciinema provider.
-	const ASCIINEMA_HREF = /^https:\/\/asciinema\.org\/a\/([^/?#]+)/;
-	document
-		.querySelectorAll<HTMLAnchorElement>('a[href*="asciinema.org/a/"]')
-		.forEach((link) => {
-			const parent = link.parentElement;
-			if (
-				!parent ||
-				parent.tagName !== 'P' ||
-				parent.children.length !== 1 ||
-				parent.textContent?.trim() !== link.textContent?.trim()
-			) {
-				return;
-			}
-			const match = link.href.match(ASCIINEMA_HREF);
-			if (!match) return;
-			const id = match[1];
-			const script = document.createElement('script');
-			script.async = true;
-			script.src = `https://asciinema.org/a/${id}.js`;
-			script.id = `asciicast-${id}`;
-			parent.replaceWith(script);
-		});
-</script>
-
 <style is:global>
 	:root {
 		--blog-content-width: 48rem;
 	}
 	body:has(.blog-post) {
 		--sl-content-width: var(--blog-content-width);
+	}
+	.asciinema-embed {
+		margin: 1.5rem 0;
+	}
+	.asciinema-embed noscript img {
+		display: block;
+		max-width: 100%;
+		height: auto;
+		border-radius: 6px;
 	}
 </style>
 <style>

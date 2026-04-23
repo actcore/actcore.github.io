@@ -2,9 +2,13 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import mermaid from 'astro-mermaid';
+import { rehypeAsciinema } from './src/lib/rehype-asciinema.ts';
 
 export default defineConfig({
 	site: 'https://actcore.dev',
+	markdown: {
+		rehypePlugins: [rehypeAsciinema],
+	},
 	integrations: [
 		mermaid({
 			theme: 'dark',
