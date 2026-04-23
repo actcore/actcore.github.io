@@ -4,8 +4,8 @@ description: "Today's MCP servers ship as `npx`, `uvx`, or `curl | bash` — amb
 pubDate: 2026-04-23
 author: actcore
 tags:
+  - act
   - webassembly
-  - rust
   - opensource
   - ai
 cover_image: https://actcore.dev/blog/introducing-act-cover.png
