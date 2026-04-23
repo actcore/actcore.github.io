@@ -1,63 +1,60 @@
 #!/usr/bin/env bash
-# Record demo.sh and publish three artifacts:
-#   - public/blog/introducing-act-demo.cast  (served to asciinema-player on actcore.dev)
-#   - public/blog/introducing-act-demo.gif   (fallback for dev.to / RSS / LinkedIn previews)
+# Record the terminal demo for the "MCP servers, sandboxed" intro post,
+# then (optionally) upload it to asciinema.org so the blog post embed
+# can point at it.
 #
 # Usage:
-#     ./render.sh               # record & publish
-#     ./render.sh --render-only # skip recording, re-publish from existing demo.cast
+#     ./render.sh                  # record only (use the existing demo.cast otherwise)
+#     ./render.sh --upload         # record + asciinema upload
+#     ./render.sh --upload-only    # skip recording; upload existing demo.cast
+#
+# Output:
+#     demo.cast   — kept under version control here in scripts/blog/…/
+#                   so subsequent re-uploads / re-records start from a
+#                   known source.
 #
 # Requirements:
-#     asciinema — https://asciinema.org/ (brew/pipx install asciinema)
-#     agg       — https://github.com/asciinema/agg (cargo install --git … agg
-#                 or download binary release)
+#     asciinema — brew/pipx install asciinema
+#     asciinema auth  (on first use, for uploading)
 
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-CAST_LOCAL="${HERE}/demo.cast"
-OUT_DIR="${HERE}/../../../public/blog"
-CAST_PUB="${OUT_DIR}/introducing-act-demo.cast"
-GIF_PUB="${OUT_DIR}/introducing-act-demo.gif"
-mkdir -p "$OUT_DIR"
+CAST="${HERE}/demo.cast"
 
-if [[ "${1:-}" != "--render-only" ]]; then
+record=true
+upload=false
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --upload)       upload=true ;;
+        --upload-only)  record=false; upload=true ;;
+        *)              echo "unknown flag: $1" >&2; exit 2 ;;
+    esac
+    shift
+done
+
+if $record; then
     : "${ACT:=npx -y @actcore/act@latest}"
     echo "→ pre-warming component cache"
     ${ACT} info ghcr.io/actpkg/random:latest >/dev/null 2>&1 || true
 
-    echo "→ recording demo.sh → ${CAST_LOCAL}"
-    rm -f "$CAST_LOCAL"
+    echo "→ recording demo.sh → ${CAST}"
+    rm -f "$CAST"
     asciinema rec --cols 96 --rows 28 \
         --command "bash ${HERE}/demo.sh" \
-        "$CAST_LOCAL"
+        "$CAST"
+    echo "→ cast: $(wc -c < "$CAST" | awk '{printf "%.1f KB", $1/1024}')"
 fi
 
-if [[ ! -s "$CAST_LOCAL" ]]; then
-    echo "error: no cast at ${CAST_LOCAL}" >&2
-    exit 1
+if $upload; then
+    if [[ ! -s "$CAST" ]]; then
+        echo "error: no cast at ${CAST}" >&2
+        exit 1
+    fi
+    echo "→ uploading ${CAST} to asciinema.org"
+    asciinema upload "$CAST"
+    echo
+    echo "Put the cast ID in the intro post:"
+    echo "    src/content/blog/2026-04-23-introducing-act.md"
+    echo "    <div data-asciinema-id=\"<ID>\"></div>"
 fi
-
-echo "→ publishing cast → ${CAST_PUB}"
-cp "$CAST_LOCAL" "$CAST_PUB"
-
-if command -v agg >/dev/null 2>&1; then
-    echo "→ rendering GIF via agg → ${GIF_PUB}"
-    agg \
-        --cols 96 --rows 28 \
-        --theme monokai \
-        --font-size 16 \
-        --speed 1.3 \
-        "$CAST_LOCAL" "$GIF_PUB"
-    echo "→ wrote $(wc -c < "$GIF_PUB" | awk '{printf "%.1f KB", $1/1024}') of GIF"
-else
-    cat <<EOF >&2
-warning: \`agg\` not found — skipping GIF.
-    Install for dev.to / RSS fallback:
-        cargo install --git https://github.com/asciinema/agg
-        # or grab a prebuilt binary release and put it on PATH
-    Then re-run:  ./render.sh --render-only
-EOF
-fi
-
-echo "→ cast: $(wc -c < "$CAST_PUB" | awk '{printf "%.1f KB", $1/1024}')"

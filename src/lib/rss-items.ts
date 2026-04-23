@@ -46,7 +46,22 @@ export async function buildRssItems(
 
 	return posts.map((post) => {
 		const canonical = new URL(`/blog/${post.id}/`, site).href;
-		const rendered = sanitizeHtml(md.render(post.body ?? ''), sanitizeOptions);
+		// Render markdown → HTML, then substitute asciinema placeholders
+		// before sanitizeHtml strips data-* attributes. Two different
+		// substitutions depending on the target:
+		//   - dev.to importer: emit its `{% asciinema ID %}` liquid tag.
+		//   - Generic feed readers: emit a link to the cast (no way to
+		//     embed interactively without asciinema.org JS, which feed
+		//     readers strip).
+		const rawHtml = md.render(post.body ?? '');
+		const substituted = opts.devToFrontmatter
+			? replaceAsciinema(rawHtml, (id) => `{% asciinema ${id} %}`)
+			: replaceAsciinema(
+					rawHtml,
+					(id) =>
+						`<p><a href="https://asciinema.org/a/${id}">Terminal demo (asciinema)</a></p>`,
+			  );
+		const rendered = sanitizeHtml(substituted, sanitizeOptions);
 		// Rewrite root-relative asset URLs (/blog/... etc.) to absolute so
 		// crossposted feeds — and any aggregator that doesn't know our
 		// site origin — can load images and follow links.
@@ -77,6 +92,19 @@ function absolutizeUrls(html: string, site: URL): string {
 	return html.replace(
 		/(\s(?:src|href))="(\/[^"]*)"/g,
 		(_, attr, path) => `${attr}="${new URL(path, site).href}"`,
+	);
+}
+
+function replaceAsciinema(
+	html: string,
+	fn: (id: string) => string,
+): string {
+	// Match <div data-asciinema-id="…"></div> (with optional whitespace,
+	// other attrs, inner content). The placeholder is always a self-
+	// contained element in our markdown, but be liberal in parsing.
+	return html.replace(
+		/<div([^>]*\sdata-asciinema-id="([^"]+)"[^>]*)>[\s\S]*?<\/div>/g,
+		(_full, _attrs, id) => fn(id),
 	);
 }
 

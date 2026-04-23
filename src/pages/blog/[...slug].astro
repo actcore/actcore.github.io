@@ -52,46 +52,22 @@ if (coverAbsolute) {
 </StarlightPage>
 
 <script>
-	// Lazy-hydrate asciinema-player on any element with data-cast.
-	// The inner <img> fallback (served to RSS / crossposts) is hidden
-	// as soon as the player mounts. asciinema-player JS + CSS weigh
-	// ~300 KB combined, so they're deferred until the element is about
-	// to scroll into view.
-	const targets = document.querySelectorAll<HTMLElement>(
-		'.asciinema-cast[data-cast]',
-	);
-	if (targets.length) {
-		const mount = async (el: HTMLElement) => {
-			const cast = el.getAttribute('data-cast');
-			if (!cast) return;
-			const [{ create }] = await Promise.all([
-				import('asciinema-player'),
-				import('asciinema-player/dist/bundle/asciinema-player.css'),
-			]);
-			const container = document.createElement('div');
-			el.replaceChildren(container);
-			create(cast, container, {
-				autoPlay: false,
-				loop: false,
-				preload: true,
-				idleTimeLimit: 2,
-				theme: 'monokai',
-			});
-		};
-
-		const io = new IntersectionObserver(
-			(entries) => {
-				for (const entry of entries) {
-					if (entry.isIntersecting) {
-						io.unobserve(entry.target);
-						mount(entry.target as HTMLElement);
-					}
-				}
-			},
-			{ rootMargin: '200px' },
-		);
-		targets.forEach((el) => io.observe(el));
-	}
+	// Upgrade [data-asciinema-id] placeholders into an asciinema.org
+	// script embed. Source of truth lives on asciinema.org; generic
+	// feed readers and dev.to's RSS importer see a different
+	// substitution (dev.to's liquid tag / a fallback link) rendered
+	// server-side in rss-items.ts.
+	document
+		.querySelectorAll<HTMLElement>('[data-asciinema-id]')
+		.forEach((el) => {
+			const id = el.getAttribute('data-asciinema-id');
+			if (!id) return;
+			const script = document.createElement('script');
+			script.async = true;
+			script.src = `https://asciinema.org/a/${id}.js`;
+			script.id = `asciicast-${id}`;
+			el.replaceWith(script);
+		});
 </script>
 
 <style is:global>
@@ -101,14 +77,8 @@ if (coverAbsolute) {
 	body:has(.blog-post) {
 		--sl-content-width: var(--blog-content-width);
 	}
-	.asciinema-cast {
-		margin: 1.5rem 0;
-	}
-	.asciinema-cast img {
-		display: block;
-		width: 100%;
-		height: auto;
-		border-radius: 6px;
+	[data-asciinema-id] {
+		min-height: 12rem;
 	}
 </style>
 <style>

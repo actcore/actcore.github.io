@@ -33,11 +33,7 @@ That's the core trade ACT offers. The rest of this post is about why the WebAsse
 
 A side benefit of picking WebAssembly: the artifact is a single binary that runs everywhere.
 
-<div class="asciinema-cast" data-cast="/blog/introducing-act-demo.cast">
-
-![Terminal demo: act info ghcr.io/actpkg/random:latest --tools](/blog/introducing-act-demo.gif)
-
-</div>
+<div data-asciinema-id="ASCIINEMA_ID_PLACEHOLDER"></div>
 
 That command pulls a small component from GitHub's container registry, reads its metadata from a WASM custom section (no instantiation), and prints the tools it exposes. First pull is cached, every subsequent invocation hits the local `~/.cache/act/components`. The artifact is signed by GitHub's attestation workflow and comes with an SBOM — all upstream machinery; ACT just uses it.
 
