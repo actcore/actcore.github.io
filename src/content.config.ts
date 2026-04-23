@@ -13,6 +13,9 @@ export const collections = {
 			pubDate: z.coerce.date(),
 			author: z.string().default('actcore'),
 			draft: z.boolean().default(false),
+			tags: z.array(z.string()).optional(),
+			cover_image: z.string().optional(),
+			series: z.string().optional(),
 		}),
 	}),
 };

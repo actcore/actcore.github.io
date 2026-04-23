@@ -3,6 +3,11 @@ title: "One .wasm, everywhere — introducing ACT"
 description: "ACT packages tools as WebAssembly components — one binary that runs on every OS, every CPU, under an explicit capability sandbox. Stops the per-platform install tax that native tools pay today."
 pubDate: 2026-04-23
 author: actcore
+tags:
+  - webassembly
+  - rust
+  - opensource
+  - ai
 ---
 
 A useful tool today ships with a matrix behind it.
