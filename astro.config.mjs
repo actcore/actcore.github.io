@@ -15,6 +15,7 @@ export default defineConfig({
 			description: 'Agent Component Tools — universal tool components built on WebAssembly',
 			social: [
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/actcore' },
+				{ icon: 'linkedin', label: 'LinkedIn', href: 'https://www.linkedin.com/company/actcore' },
 				{ icon: 'rss', label: 'Blog RSS', href: '/blog/rss.xml' },
 			],
 			sidebar: [
