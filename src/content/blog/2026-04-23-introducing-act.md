@@ -65,9 +65,9 @@ utility has the same ambient filesystem and network access as you do.
 Sandboxing native code is possible (firejail, bwrap, cgroups) but
 tedious enough that almost nobody does it for day-to-day tooling.
 
-ACT components don't run natively. They run inside
-[`wasmtime`](https://wasmtime.dev) — a full WebAssembly VM with a
-JIT, linear-memory isolation, and no direct access to host syscalls.
+ACT components don't run natively. They run inside [`wasmtime`](https://wasmtime.dev) —
+a full WebAssembly VM with a JIT, linear-memory isolation, and no
+direct access to host syscalls.
 The component can't read files, open sockets, or spawn processes on
 its own; the only way out of the VM is through explicit imports the
 host chose to wire up. That's the real isolation boundary — and
@@ -149,8 +149,7 @@ mod component {
 you have a `.wasm` that speaks MCP, HTTP, and the CLI. `#[act_tool]`
 derives the JSON Schema from the function signature; `#[act_component]`
 emits the WIT export. Python has the same shape with `@component` /
-`@tool` decorators on top of
-[`componentize-py`](https://github.com/bytecodealliance/componentize-py).
+`@tool` decorators on top of [`componentize-py`](https://github.com/bytecodealliance/componentize-py).
 
 ## Where this is
 
@@ -160,8 +159,7 @@ The core spec — [act:core@0.3.0](https://github.com/actcore/act-spec/blob/main
 host ships as `act` on npm and cargo. Eleven components are published
 on `ghcr.io/actpkg`: sqlite, http-client, openapi-bridge, mcp-bridge,
 crypto, encoding, filesystem, random, time, openwallet, python-eval.
-Rust and Python SDKs are live; JavaScript via componentize-js is
-[blocked on upstream async-export support](https://github.com/bytecodealliance/ComponentizeJS/issues/335).
+Rust and Python SDKs are live; JavaScript via componentize-js is [blocked on upstream async-export support](https://github.com/bytecodealliance/ComponentizeJS/issues/335).
 
 Follow-up posts coming on:
 
@@ -172,7 +170,6 @@ Follow-up posts coming on:
   artifact lifecycle from `just build` to `actpkg.dev`.
 
 If you write MCP servers, build agent tooling, or work on the
-component model, we'd love your thoughts. Start at
-[actcore.dev/docs](https://actcore.dev/docs/), browse
-[github.com/actcore](https://github.com/actcore), or ping us in the
-Bytecode Alliance Zulip.
+component model, we'd love your thoughts. Start at [actcore.dev/docs](https://actcore.dev/docs/),
+browse [github.com/actcore](https://github.com/actcore), or ping us
+in the Bytecode Alliance Zulip.

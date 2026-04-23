@@ -110,8 +110,7 @@ host dependencies.
 
 ### [`python-eval`](https://github.com/actpkg/python-eval)
 
-An entire CPython interpreter baked into a wasm component via
-[`componentize-py`](https://github.com/bytecodealliance/componentize-py).
+An entire CPython interpreter baked into a wasm component via [`componentize-py`](https://github.com/bytecodealliance/componentize-py).
 Takes a string of Python, runs it in a fresh namespace, returns
 stdout + the last-expression value. Demonstrates that "running
 untrusted code" is a fair thing to do under the ACT sandbox because
