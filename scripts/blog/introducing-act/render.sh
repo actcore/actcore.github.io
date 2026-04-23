@@ -29,10 +29,7 @@ fi
 
 echo "→ rendering ${CAST} → ${OUT}"
 npx -y svg-term-cli --in "$CAST" --out "$OUT" \
-    --window --no-cursor --profile=~/.config/asciinema/default.terminal \
-    --width 96 --height 28 \
-    2>/dev/null || npx -y svg-term-cli --in "$CAST" --out "$OUT" \
-        --window --no-cursor --width 96 --height 28
+    --window --no-cursor --width 96 --height 28
 
 # Report size and preview absolute path
 echo "→ wrote $(wc -c < "$OUT" | awk '{printf "%.1f KB", $1/1024}') to ${OUT}"

@@ -33,9 +33,7 @@ That's the core trade ACT offers. The rest of this post is about why the WebAsse
 
 A side benefit of picking WebAssembly: the artifact is a single binary that runs everywhere.
 
-```bash
-npx @actcore/act info ghcr.io/actpkg/sqlite:latest --tools
-```
+![act info ghcr.io/actpkg/sqlite:latest --tools](/blog/introducing-act-demo.svg)
 
 That command pulls a 1.5 MB component from GitHub's container registry, reads its metadata from a WASM custom section (no instantiation), and prints the tools it exposes. First pull is cached. The artifact is signed by GitHub's attestation workflow and comes with an SBOM — all upstream machinery; ACT just uses it.
 

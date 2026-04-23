@@ -46,7 +46,11 @@ export async function buildRssItems(
 
 	return posts.map((post) => {
 		const canonical = new URL(`/blog/${post.id}/`, site).href;
-		const body = sanitizeHtml(md.render(post.body ?? ''), sanitizeOptions);
+		const rendered = sanitizeHtml(md.render(post.body ?? ''), sanitizeOptions);
+		// Rewrite root-relative asset URLs (/blog/... etc.) to absolute so
+		// crossposted feeds — and any aggregator that doesn't know our
+		// site origin — can load images and follow links.
+		const body = absolutizeUrls(rendered, site);
 		const content = opts.devToFrontmatter
 			? `${devToFrontmatter({
 					title: post.data.title,
@@ -67,6 +71,13 @@ export async function buildRssItems(
 			content,
 		};
 	});
+}
+
+function absolutizeUrls(html: string, site: URL): string {
+	return html.replace(
+		/(\s(?:src|href))="(\/[^"]*)"/g,
+		(_, attr, path) => `${attr}="${new URL(path, site).href}"`,
+	);
 }
 
 function devToFrontmatter(fields: Record<string, unknown>): string {
